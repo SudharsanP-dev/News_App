@@ -29,8 +29,55 @@ const SAMPLE_ARTICLES = [
     pubDate: new Date().toISOString()
   }
 ];
-// Stored structure for API usage tracking
+
+// Filter pattern for 18+ adult, sexually explicit, and excessively graphic content
+const SENSITIVE_KEYWORDS_REGEX = /\b(porn|porno|pornography|pornographic|nsfw|xxx|hentai|erotic|erotica|onlyfans|playboy|penthouse|escort\s+service|sex\s+workers?|strip\s*clubs?|strippers?|dildos?|vibrators?|orgasms?|sexual\s+intercourse|masturbat\w+|incest|pedophil\w+|paedophil\w+|child\s+sexual\w*|rapist|rape|raping|gangrape|sexual\s+assault|sex\s+(?:tape|video|scandal|act|scene|toy|toys|doll|cam|chat)|(?:hardcore|anal|oral|group)\s+sex|adult\s+(?:content|video|film|movie|industry|star|entertainment)|18\+|snuff|beheading|beheaded|decapitat\w+|nudity|nude\s+photos?|naked\s+photos?|leaked\s+nudes?|brothels?|prostitut\w+|cumshot|blowjob|handjob|fellatio|explicit\s+(?:content|scenes?|nudity|sexual))\b/i;
+
+export const isSensitiveArticle = (article) => {
+  if (!article) return false;
+  
+  const textToScan = [
+    article.title,
+    article.description,
+    article.link,
+    typeof article.category === 'string' ? article.category : Array.isArray(article.category) ? article.category.join(' ') : ''
+  ].filter(Boolean).join(' ');
+
+  if (SENSITIVE_KEYWORDS_REGEX.test(textToScan)) {
+    return true;
+  }
+
+  // Also check category explicitly
+  const categories = Array.isArray(article.category) ? article.category : [article.category];
+  for (const cat of categories) {
+    if (typeof cat === 'string') {
+      const lower = cat.toLowerCase();
+      if (lower.includes('adult') || lower.includes('18+') || lower.includes('erotic') || lower.includes('nsfw')) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+export const isSafeSearchEnabled = () => {
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem('newsapp-safe-search') !== 'false';
+  } catch {
+    return true;
+  }
+};
+
+export const filterSafeArticles = (articles) => {
+  if (!Array.isArray(articles)) return [];
+  if (!isSafeSearchEnabled()) return articles;
+  return articles.filter(article => !isSensitiveArticle(article));
+};
 const getStoredData = () => {
+  if (typeof localStorage === 'undefined') {
+    return { primaryApiCount: 0, fallbackKeyIndex: 0, fallbackCounts: new Array(FALLBACK_API_KEYS.length).fill(0), blockedUntil: {}, lastReset: Date.now() };
+  }
   const stored = localStorage.getItem('newsapp-api-data');
   if (stored) {
     try {
@@ -50,7 +97,9 @@ const getStoredData = () => {
 };
 
 const saveStoredData = (data) => {
-  localStorage.setItem('newsapp-api-data', JSON.stringify(data));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('newsapp-api-data', JSON.stringify(data));
+  }
 };
 
 let apiData = getStoredData();
@@ -181,7 +230,7 @@ export const getLatestNews = (query = "", category = "", retries = 2) => {
     useSearch = false;
   }
   
-  const cacheKey = `${BASE_URL}|${searchQuery || searchCategory || 'latest'}`;
+  const cacheKey = `${BASE_URL}|${searchQuery || searchCategory || 'latest'}|safe=${isSafeSearchEnabled()}`;
 
   // return from short cache if available
   const cached = cache.get(cacheKey);
@@ -258,7 +307,7 @@ export const getLatestNews = (query = "", category = "", retries = 2) => {
 
         if (!response.data) {
           console.warn('newsAPI: Empty response received from provider');
-          return SAMPLE_ARTICLES;
+          return filterSafeArticles(SAMPLE_ARTICLES);
         }
 
         const items = response.data.results || response.data.articles || response.data.data || [];
@@ -274,14 +323,17 @@ export const getLatestNews = (query = "", category = "", retries = 2) => {
           pubDate: it.pubDate || it.publishedAt || it.published_at || it.date || ''
         }));
 
-        if (!results || results.length === 0) {
-          console.warn('newsAPI: No articles found, returning sample articles');
-          cache.set(cacheKey, { ts: Date.now(), data: SAMPLE_ARTICLES });
-          return SAMPLE_ARTICLES;
+        const safeResults = filterSafeArticles(results);
+
+        if (!safeResults || safeResults.length === 0) {
+          console.warn('newsAPI: No safe articles found, returning safe sample articles');
+          const safeSamples = filterSafeArticles(SAMPLE_ARTICLES);
+          cache.set(cacheKey, { ts: Date.now(), data: safeSamples });
+          return safeSamples;
         }
 
-        cache.set(cacheKey, { ts: Date.now(), data: results });
-        return results;
+        cache.set(cacheKey, { ts: Date.now(), data: safeResults });
+        return safeResults;
         
       } catch (err) {
         console.error(`newsAPI: Attempt ${attempt + 1} failed:`, err.message);
@@ -321,7 +373,7 @@ export const getLatestNews = (query = "", category = "", retries = 2) => {
     }
 
     console.warn('newsAPI: All attempts failed, returning sample articles');
-    return SAMPLE_ARTICLES;
+    return filterSafeArticles(SAMPLE_ARTICLES);
   });
 
   inFlightRequests.set(cacheKey, promise);
@@ -377,5 +429,5 @@ export const fetchAllNewsDataPages = async (query = 'india', apiKey = 'pub_86785
   } catch (err) {
     console.error('fetchAllNewsDataPages error:', err?.response?.status, err?.response?.data || err.message);
   }
-  return combined;
+  return filterSafeArticles(combined);
 };

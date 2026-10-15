@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import Topbar from '../components/Topbar';
 import useTheme from '../context/useTheme';
-import { FaTrash, FaSync, FaBell, FaGlobe, FaMoon, FaSun } from 'react-icons/fa';
+import { FaTrash, FaSync, FaBell, FaGlobe, FaMoon, FaSun, FaShieldAlt } from 'react-icons/fa';
 
 export default function Settings() {
   const { dark, setDark } = useTheme();
   const [notifications, setNotifications] = useState(() => {
     return localStorage.getItem('newsapp-notifications') === 'true';
+  });
+  const [safeSearch, setSafeSearch] = useState(() => {
+    return localStorage.getItem('newsapp-safe-search') !== 'false';
   });
   const [language, setLanguage] = useState(() => {
     return localStorage.getItem('newsapp-language') || 'en';
@@ -32,9 +35,17 @@ export default function Settings() {
       localStorage.removeItem('newsapp-theme');
       localStorage.removeItem('newsapp-notifications');
       localStorage.removeItem('newsapp-language');
+      localStorage.removeItem('newsapp-safe-search');
       alert('Cache cleared! Page will reload.');
       window.location.reload();
     }
+  };
+
+  const toggleSafeSearch = () => {
+    const newValue = !safeSearch;
+    setSafeSearch(newValue);
+    localStorage.setItem('newsapp-safe-search', String(newValue));
+    window.dispatchEvent(new Event('safe-search-updated'));
   };
 
   const toggleNotifications = () => {
@@ -83,6 +94,23 @@ export default function Settings() {
             </div>
             <label className="switch">
               <input type="checkbox" checked={notifications} onChange={toggleNotifications} />
+              <span className="slider"></span>
+            </label>
+          </div>
+        </section>
+ 
+        <section className="settings-section">
+          <h3>Content Safety</h3>
+          <div className="setting-item">
+            <div className="setting-info">
+              <FaShieldAlt />
+              <div>
+                <h4>Block 18+ & Sensitive Content</h4>
+                <p>Filter out adult, sexually explicit, and sensitive news articles</p>
+              </div>
+            </div>
+            <label className="switch">
+              <input type="checkbox" checked={safeSearch} onChange={toggleSafeSearch} />
               <span className="slider"></span>
             </label>
           </div>

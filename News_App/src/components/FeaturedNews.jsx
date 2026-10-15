@@ -1,9 +1,11 @@
 import React from 'react';
 import NewsCard from './NewsCard';
+import { filterSafeArticles } from '../services/newsAPI';
 
 export default function FeaturedNews({ articles = [] }) {
-  const main = articles[0];
-  const side = articles.slice(1, 5);
+  const safe = filterSafeArticles(articles);
+  const main = safe[0];
+  const side = safe.slice(1, 5);
 
   return (
     <section className="featured">

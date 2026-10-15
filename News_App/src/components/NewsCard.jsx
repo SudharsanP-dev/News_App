@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { FaBookmark } from 'react-icons/fa';
+import { isSensitiveArticle, isSafeSearchEnabled } from '../services/newsAPI';
 
 export default function NewsCard({ article, small }) {
-  const { title, description, image_url, link, source, pubDate } = article || {};
+  if (!article || (isSafeSearchEnabled() && isSensitiveArticle(article))) {
+    return null;
+  }
+  const { title, description, image_url, link, source, pubDate } = article;
   const [expanded, setExpanded] = useState(false);
   const [imageError, setImageError] = useState(false);
 

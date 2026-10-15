@@ -1,16 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import Topbar from '../components/Topbar';
 import NewsCard from '../components/NewsCard';
+import { filterSafeArticles } from '../services/newsAPI';
 
 export default function Bookmarks(){
-  const [bookmarks,setBookmarks] = useState([]);
+  const [bookmarks, setBookmarks] = useState([]);
 
   useEffect(()=>{
-    const load = ()=> setBookmarks(JSON.parse(localStorage.getItem('newsapp-bookmarks')||'[]'));
+    const load = () => {
+      const all = JSON.parse(localStorage.getItem('newsapp-bookmarks') || '[]');
+      setBookmarks(filterSafeArticles(all));
+    };
     load();
     window.addEventListener('bookmarks-updated', load);
-    return ()=> window.removeEventListener('bookmarks-updated', load);
-  },[]);
+    window.addEventListener('safe-search-updated', load);
+    return () => {
+      window.removeEventListener('bookmarks-updated', load);
+      window.removeEventListener('safe-search-updated', load);
+    };
+  }, []);
 
   return (
     <div className="page bookmarks">
