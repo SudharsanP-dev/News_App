@@ -3,17 +3,13 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/news/(.*)",
-      "destination": "/news/index.html"
-    },
-    {
-      "source": "/news",
-      "destination": "/news/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/news/assets/(.*)",
+      "source": "/assets/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
